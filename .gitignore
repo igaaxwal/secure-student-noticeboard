@@ -1,0 +1,8 @@
+# Local SQLite database and temporary files
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# Application logs
+*.log
