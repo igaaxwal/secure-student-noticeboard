@@ -6,3 +6,5 @@
 
 # Application logs
 *.log
+
+/data/
