@@ -10,6 +10,7 @@ header('Cache-Control: no-store');
 $pageTitle = 'Student Noticeboard';
 $error = '';
 $notices = [];
+$search = '';
 
 $_SESSION['token'] ??= bin2hex(random_bytes(32));
 
@@ -74,9 +75,17 @@ try {
     }
 
     if (isset($_SESSION['user_id'])) {
-        $notices = database()->query(
-            'SELECT title, message FROM notices ORDER BY notice_id DESC'
-        )->fetchAll();
+        $searchInput = $_GET['search'] ?? '';
+        $search = is_string($searchInput) ? trim($searchInput) : '';
+
+        $query = database()->prepare(
+            'SELECT title, message
+            FROM notices
+            WHERE instr(lower(title), lower(?)) > 0
+            ORDER BY notice_id DESC'
+        );
+        $query->execute([$search]);
+        $notices = $query->fetchAll();
     }
 } catch (RuntimeException $exception) {
     http_response_code(503);
@@ -132,9 +141,15 @@ try {
             </form>
 
             <h2>Published notices</h2>
+            <form method="get" action="/">
+                <label for="search">Search by title</label>
+                <input type="search" id="search" name="search" value="<?= html($search) ?>">
+                <button type="submit">Search</button>
+                <a href="/">Show all notices</a>
+            </form>
 
             <?php if (!$notices && $error === ''): ?>
-                <p>There are no published notices yet.</p>
+                <p><?= $search === '' ? 'No notices have been published yet.' : 'No notices match your search.' ?></p>
             <?php endif; ?>
 
             <?php foreach ($notices as $notice): ?>
