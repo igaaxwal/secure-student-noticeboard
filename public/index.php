@@ -11,6 +11,10 @@ $pageTitle = 'Student Noticeboard';
 $error = '';
 $notices = [];
 $search = '';
+$noticeTitle = '';
+$noticeMessage = '';
+$previewError = '';
+$showPreview = false;
 
 $_SESSION['token'] ??= bin2hex(random_bytes(32));
 
@@ -40,6 +44,20 @@ try {
         if (!is_string($token) || !hash_equals($_SESSION['token'], $token)) {
             http_response_code(403);
             $error = 'Please refresh the page and try again.';
+        } elseif (($_POST['action'] ?? '') === 'preview_notice'
+            && isset($_SESSION['user_id'])
+            && ($_SESSION['role'] ?? '') === 'student') {
+            $titleInput = $_POST['title'] ?? '';
+            $messageInput = $_POST['message'] ?? '';
+
+            $noticeTitle = is_string($titleInput) ? trim($titleInput) : '';
+            $noticeMessage = is_string($messageInput) ? trim($messageInput) : '';
+
+            if ($noticeTitle === '' || $noticeMessage === '') {
+                $previewError = 'Enter both a title and a message to preview your notice.';
+            } else {
+                $showPreview = true;
+            }
         } elseif (($_POST['action'] ?? '') === 'sign_out') {
             $_SESSION = [];
             session_destroy();
@@ -139,6 +157,39 @@ try {
                 <input type="hidden" name="token" value="<?= html($_SESSION['token']) ?>">
                 <button type="submit">Sign out</button>
             </form>
+
+            <?php if (($_SESSION['role'] ?? '') === 'student'): ?>
+                <h2>Make a notice</h2>
+
+                <form method="post" action="/">
+                    <input type="hidden" name="token" value="<?= html($_SESSION['token']) ?>">
+                    <input type="hidden" name="action" value="preview_notice">
+
+                    <p>
+                        <label for="notice-title">Title</label><br>
+                        <input type="text" id="notice-title" name="title"
+                            value="<?= html($noticeTitle) ?>" required>
+                    </p>
+
+                    <p>
+                        <label for="notice-message">Message</label><br>
+                        <textarea id="notice-message" name="message" rows="4"
+                                required><?= html($noticeMessage) ?></textarea>
+                    </p>
+
+                    <button type="submit">Preview notice</button>
+                </form>
+
+                <?php if ($previewError !== ''): ?>
+                    <p role="alert"><?= html($previewError) ?></p>
+                <?php endif; ?>
+
+                <?php if ($showPreview): ?>
+                    <h2>Notice preview</h2>
+                    <h3><?= html($noticeTitle) ?></h3>
+                    <p><?= nl2br(html($noticeMessage)) ?></p>
+                <?php endif; ?>
+            <?php endif; ?>
 
             <h2>Published notices</h2>
             <form method="get" action="/">

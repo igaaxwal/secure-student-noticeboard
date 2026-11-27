@@ -4,7 +4,7 @@ This project uses PHP 8.4 with the PDO SQLite extension enabled.
 
 From the project folder, create the database and fictional sample data:
 
-powershell```
+```powershell
 php scripts/setup.php
 ```
 
