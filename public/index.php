@@ -44,7 +44,7 @@ try {
         if (!is_string($token) || !hash_equals($_SESSION['token'], $token)) {
             http_response_code(403);
             $error = 'Please refresh the page and try again.';
-        } elseif (($_POST['action'] ?? '') === 'preview_notice'
+        } elseif (in_array($_POST['action'] ?? '', ['preview_notice', 'publish_notice'], true)
             && isset($_SESSION['user_id'])
             && ($_SESSION['role'] ?? '') === 'student') {
             $titleInput = $_POST['title'] ?? '';
@@ -53,10 +53,32 @@ try {
             $noticeTitle = is_string($titleInput) ? trim($titleInput) : '';
             $noticeMessage = is_string($messageInput) ? trim($messageInput) : '';
 
+            $draft = [
+                'title' => $noticeTitle,
+                'message' => $noticeMessage,
+            ];
+
             if ($noticeTitle === '' || $noticeMessage === '') {
+                unset($_SESSION['notice_preview']);
                 $previewError = 'Enter both a title and a message to preview your notice.';
-            } else {
+            } elseif ($_POST['action'] === 'preview_notice') {
+                $_SESSION['notice_preview'] = $draft;
                 $showPreview = true;
+            } elseif (($_SESSION['notice_preview'] ?? null) !== $draft) {
+                $previewError = 'Please preview the current title and message before publishing.';
+            } else {
+                $query = database()->prepare(
+                    'INSERT INTO notices (author_id, title, message) VALUES (?, ?, ?)'
+                );
+                $query->execute([
+                    $_SESSION['user_id'],
+                    $draft['title'],
+                    $draft['message'],
+                ]);
+
+                unset($_SESSION['notice_preview']);
+                header('Location: /', true, 303);
+                exit;
             }
         } elseif (($_POST['action'] ?? '') === 'sign_out') {
             $_SESSION = [];
@@ -161,9 +183,8 @@ try {
             <?php if (($_SESSION['role'] ?? '') === 'student'): ?>
                 <h2>Make a notice</h2>
 
-                <form method="post" action="/">
+                <form id="notice-form" method="post" action="/">
                     <input type="hidden" name="token" value="<?= html($_SESSION['token']) ?>">
-                    <input type="hidden" name="action" value="preview_notice">
 
                     <p>
                         <label for="notice-title">Title</label><br>
@@ -177,7 +198,7 @@ try {
                                 required><?= html($noticeMessage) ?></textarea>
                     </p>
 
-                    <button type="submit">Preview notice</button>
+                    <button type="submit" name="action" value="preview_notice">Preview notice</button>
                 </form>
 
                 <?php if ($previewError !== ''): ?>
@@ -188,6 +209,9 @@ try {
                     <h2>Notice preview</h2>
                     <h3><?= html($noticeTitle) ?></h3>
                     <p><?= nl2br(html($noticeMessage)) ?></p>
+                    <button type="submit" form="notice-form" name="action" value="publish_notice">
+                        Publish this notice
+                    </button>
                 <?php endif; ?>
             <?php endif; ?>
 
